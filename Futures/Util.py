@@ -3,6 +3,7 @@ import warnings
 import functools
 import csv
 import abc
+import datetime as dt
 from abc import ABC
 
 
@@ -60,12 +61,39 @@ def num_to_time(num):
     return HH + MM + SS + ss
 
 
+class ClosingDates:
+    def __init__(self, date, weekday, n):
+        self.__date = date
+        self.__day_abbr = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+        self.__closing_date = {}
+        self.__init_closing_date(weekday, n)
+        self.__convert_to_closing_date()
+
+    def __init_closing_date(self, weekday, num):
+        self.__closing_date["weekday"] = self.__day_abbr.index(weekday.lower())
+        self.__closing_date["n"] = int(num)
+
+    def __convert_to_closing_date(self):
+        first_day_of_month = self.__date.replace(day=1)
+        weekday_of_first_day = first_day_of_month.isoweekday()
+        delta = self.__closing_date["weekday"] - weekday_of_first_day
+        delta_adj = delta + 7 if delta < 0 else delta
+        day = 1 + (self.__closing_date["n"] - 1) * 7 + delta_adj
+        self.__closing_date["date"] = self.__date.replace(day=day)
+
+    def get(self):
+        return self.__closing_date["date"]
+
+    def is_closing(self):
+        return self.__date == self.get()
+
+
 class _TechnicalIndicators(ABC):
     def __init__(self):
         self._time = None
 
     def _is_out_of_order(self, timestamp):
-        if timestamp < time_to_num(self._time):
+        if timestamp < self._time:
             raise Exception("timestamp is out of order")
 
     @abc.abstractmethod
@@ -85,7 +113,7 @@ class _Batched(_TechnicalIndicators, ABC):
         """
         super().__init__()
         self._time = initial_time
-        self._timestamp = time_to_num(initial_time)
+        self._timestamp = initial_time
         self._period = period
 
 
@@ -99,8 +127,8 @@ class MovingAverage(_Batched):
     def __init__(self, initial_time, period, interval):
         """
         :param interval    : <int>, sequence of n values, e.g., 10
-        :param period      : <int>, period for updating sequence, e.g., 6000 for 1 minute
-        :param initial_time: <str>, start time, e.g., "08450000"
+        :param period      : <datetime.timedelta>, period for updating sequence, e.g., dt.timedelta(seconds=35)
+        :param initial_time: <datetime.datetime>, start time, e.g., dt.datetime(2019, 8, 22, 9, 37, int(.35 * 10 ** 6))
         """
         _Batched.__init__(self, initial_time, period)
         self.__interval = interval
@@ -114,12 +142,12 @@ class MovingAverage(_Batched):
 
     def update(self, time, price, volume):
         """
-        :param   time: <str> info_time
-        :param  price: <int> or <float> price
-        :param volume: <int> or <float> volume (or amount)
+        :param time: <datetime.datetime>
+        :param price: <float> or <int> time series value
+        :param volume: <float> or <int> cumulative value
         :return: void
         """
-        timestamp = time_to_num(time)
+        timestamp = time
 
         # initialized attributes
         if len(self.__ma_price_array) == 0:
@@ -238,7 +266,7 @@ class OpenHighLowClose(_Batched, _Continuous):
         :param price: <int> or <float> price
         :return: void
         """
-        timestamp = time_to_num(time)
+        timestamp = time
 
         # initialized attributes
         self._initialize_time(time)
@@ -265,7 +293,7 @@ class OpenHighLowClose(_Batched, _Continuous):
         close     : latest price to current timestamp
         :return: (str timestamp , int open, int, high, int low, int close)
         """
-        time = self._time if self.__ticks else num_to_time(self._timestamp)
+        time = self._time if self.__ticks else self._timestamp
         return time, self.__open, self.__high, self.__low, self.__close
 
 
