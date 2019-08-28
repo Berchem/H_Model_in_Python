@@ -27,3 +27,10 @@ print("%12s: %d" % ("hour", t.hour))
 print("%12s: %d" % ("minute", t.minute))
 print("%12s: %d" % ("second", t.second))
 print("%12s: %d" % ("microsecond", t.microsecond))
+
+cd = ClosingDates(dt.date(2019, 6, 21), "fri", 3)
+print("date:", cd.get())
+print("isClose in tw:", cd.is_closing())
+
+print("date:", ClosingDates(dt.date(1998, 9, 21), "wed", 3).get())
+print("isClose in tw:", ClosingDates(dt.date(1998, 9, 16), "fri", 3).is_closing())
